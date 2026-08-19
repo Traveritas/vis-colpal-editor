@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kimi TUI 配色工具</title>
+<style>
+  :root {
+    --bg: #1b1d24;
+    --panel: #23262f;
+    --panel-border: #333744;
+    --fg: #e6e6e6;
+    --fg-dim: #9aa0ad;
+    --hl: #4FA8FF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 14px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  header {
+    padding: 10px 16px; border-bottom: 1px solid var(--panel-border);
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    background: var(--panel);
+  }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header .spacer { flex: 1; }
+  label.field { display: inline-flex; align-items: center; gap: 6px; color: var(--fg-dim); font-size: 13px; }
+  input[type="text"], select, textarea {
+    background: #171a20; color: var(--fg); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 5px 8px; font: inherit;
+  }
+  input[type="text"]:focus, select:focus, textarea:focus { outline: 1px solid var(--hl); }
+  button {
+    background: #2a2e39; color: var(--fg); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 5px 12px; font: inherit; cursor: pointer;
+  }
+  button:hover { background: #343947; }
+  main { display: flex; flex: 1; min-height: 0; }
+  #tokens {
+    width: 420px; min-width: 340px; overflow-y: auto; padding: 12px;
+    border-right: 1px solid var(--panel-border); background: var(--panel);
+  }
+  .group-title {
+    color: var(--fg-dim); font-size: 12px; text-transform: uppercase;
+    letter-spacing: .05em; margin: 14px 0 6px;
+  }
+  .group-title:first-child { margin-top: 0; }
+  .token-row {
+    display: grid; grid-template-columns: 30px 1fr 90px 30px;
+    align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px;
+  }
+  .token-row.overridden { background: rgba(79,168,255,.08); }
+  .token-row .sw {
+    width: 26px; height: 26px; border: 1px solid var(--panel-border);
+    border-radius: 5px; cursor: pointer; padding: 0;
+  }
+  .token-row .sw:hover { outline: 2px solid var(--hl); }
+  .token-row .tname { font-family: Consolas, monospace; font-size: 13px; }
+  .token-row .tdesc { color: var(--fg-dim); font-size: 11px; }
+  .token-row .hex {
+    font-family: Consolas, monospace; font-size: 12px; padding: 3px 6px; width: 90px;
+  }
+  .token-row .reset {
+    padding: 2px 6px; font-size: 13px; visibility: hidden; border: none; background: none;
+    color: var(--fg-dim);
+  }
+  .token-row.overridden .reset { visibility: visible; }
+  .token-row .reset:hover { color: var(--fg); }
+  .token-row.inherited .sw, .token-row.inherited .hex { opacity: .55; }
+
+  /* 取色面板 */
+  .picker-pop {
+    position: fixed; z-index: 100; width: 250px;
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 10px; padding: 12px;
+    box-shadow: 0 10px 34px rgba(0,0,0,.55);
+  }
+  .picker-title {
+    font-family: Consolas, monospace; font-size: 12px; color: var(--fg-dim);
+    margin-bottom: 8px;
+  }
+  .sv-area {
+    position: relative; width: 100%; height: 140px; border-radius: 6px;
+    cursor: crosshair; touch-action: none;
+  }
+  .sv-dot {
+    position: absolute; width: 12px; height: 12px; border: 2px solid #fff;
+    border-radius: 50%; transform: translate(-50%,-50%); pointer-events: none;
+    box-shadow: 0 0 3px rgba(0,0,0,.9);
+  }
+  .hue-bar {
+    position: relative; height: 12px; border-radius: 6px; margin-top: 10px;
+    background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+    cursor: pointer; touch-action: none;
+  }
+  .hue-thumb {
+    position: absolute; top: 50%; width: 8px; height: 16px;
+    border: 2px solid #fff; border-radius: 4px;
+    transform: translate(-50%,-50%); pointer-events: none;
+    box-shadow: 0 0 3px rgba(0,0,0,.9);
+  }
+  .picker-hex-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .picker-hex-row .cur {
+    width: 30px; height: 30px; border-radius: 6px;
+    border: 1px solid var(--panel-border); flex: none;
+  }
+  .picker-hex-row input { flex: 1; font-family: Consolas, monospace; min-width: 0; }
+  .picker-swatches-label { color: var(--fg-dim); font-size: 11px; margin-top: 10px; }
+  .picker-swatches {
+    display: grid; grid-template-columns: repeat(10, 1fr);
+    gap: 4px; margin-top: 4px;
+  }
+  .picker-swatches button {
+    width: 100%; aspect-ratio: 1; min-height: 14px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,.15); cursor: pointer; padding: 0;
+  }
+  .picker-swatches button:hover { outline: 2px solid #fff; }
+
+  #right { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #preview {
+    flex: 1; overflow-y: auto; padding: 20px;
+    font-family: Consolas, "Cascadia Mono", monospace;
+  }
+  .term {
+    max-width: 760px; margin: 0 auto; border-radius: 8px; padding: 16px 18px;
+    border: 1px solid #000;
+  }
+  .pv { white-space: pre-wrap; word-break: break-word; }
+  .pv-box { border: 1px solid; border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
+  .pv-row { display: flex; gap: 8px; }
+  .pv-sel { border-radius: 4px; padding: 0 6px; }
+  .pv-diff { border: 1px solid; border-radius: 6px; margin: 8px 0; overflow: hidden; }
+  .pv-diff .line { display: flex; }
+  .pv-diff .gutter { width: 44px; text-align: right; padding-right: 8px; user-select: none; flex: none; }
+  .pv-diff .code { flex: 1; padding-left: 8px; white-space: pre; }
+  .pv-footer { margin-top: 14px; padding-top: 8px; border-top: 1px solid; }
+  .pv-badge { border-radius: 4px; padding: 0 6px; }
+
+  #output-bar {
+    border-top: 1px solid var(--panel-border); background: var(--panel);
+    padding: 10px 16px; display: flex; gap: 10px; align-items: flex-start;
+  }
+  #json-out {
+    flex: 1; height: 120px; resize: none; font-family: Consolas, monospace; font-size: 12px;
+  }
+  #output-bar .btns { display: flex; flex-direction: column; gap: 6px; }
+  #hint { color: var(--fg-dim); font-size: 12px; padding: 4px 16px 8px; background: var(--panel); }
+  #hint code { color: var(--fg); }
+  .toast {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    background: #2f855a; color: #fff; padding: 6px 16px; border-radius: 6px;
+    opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 200;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kimi TUI 配色工具</h1>
+  <label class="field">主题名 <input type="text" id="theme-name" value="my-theme" style="width:120px"></label>
+  <label class="field">显示名 <input type="text" id="theme-display" placeholder="(可选)" style="width:110px"></label>
+  <label class="field">基础
+    <select id="base">
+      <option value="dark">dark（深色）</option>
+      <option value="light">light（浅色）</option>
+    </select>
+  </label>
+  <label class="field">预览背景 <input type="color" id="term-bg" value="#1a1b26"></label>
+  <label class="field">预设
+    <select id="preset">
+      <option value="">套用经典配色…</option>
+    </select>
+  </label>
+  <div class="spacer"></div>
+  <button id="btn-import">导入 JSON…</button>
+  <input type="file" id="import-file" accept=".json" hidden>
+  <button id="btn-reset-all">全部重置</button>
+</header>
+
+<main>
+  <div id="tokens"></div>
+  <div id="right">
+    <div id="preview"></div>
+    <div id="output-bar">
+      <textarea id="json-out" readonly spellcheck="false"></textarea>
+      <div class="btns">
+        <button id="btn-copy">复制</button>
+        <button id="btn-download">下载 .json</button>
+      </div>
+    </div>
+    <div id="hint">保存到 <code>~/.kimi-code/themes/&lt;主题名&gt;.json</code>，然后在 kimi 里运行 <code>/theme</code> 选择它；若修改的是当前正在使用的主题，运行 <code>/reload-tui</code> 生效。</div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// Kimi Code CLI 内置色板（来自官方文档 themes 页）
+var TOKENS = [
+  { group: "高亮" },
+  { key: "primary",   dark: "#4FA8FF", light: "#1565C0", desc: "链接、行内代码、选中项、聚焦边框、徽章、加载动画" },
+  { key: "accent",    dark: "#5BC0BE", light: "#00838F", desc: "次级高亮：审批 ▶、设备码框、队列面板" },
+  { group: "文本" },
+  { key: "text",        dark: "#E0E0E0", light: "#1A1A1A", desc: "正文：对话内容、Markdown 标题、列表" },
+  { key: "textStrong",  dark: "#F5F5F5", light: "#1A1A1A", desc: "强调 / 加粗文本" },
+  { key: "textDim",     dark: "#888888", light: "#454545", desc: "次要：思考过程、提示、引用、状态栏" },
+  { key: "textMuted",   dark: "#6B6B6B", light: "#5F5F5F", desc: "最弱：计数器、链接 URL、代码块边框" },
+  { group: "边框与状态" },
+  { key: "border",      dark: "#5A5A5A", light: "#737373", desc: "面板与编辑器边框、分割线" },
+  { key: "borderFocus", dark: "#E8A838", light: "#92660A", desc: "焦点边框（审批面板）" },
+  { key: "success",     dark: "#4EC87E", light: "#0E7A38", desc: "成功状态 ✓" },
+  { key: "warning",     dark: "#E8A838", light: "#92660A", desc: "警告：auto/yolo 徽章、过期标记" },
+  { key: "error",       dark: "#E85454", light: "#B91C1C", desc: "错误消息、失败的工具输出" },
+  { group: "Diff" },
+  { key: "diffAdded",         dark: "#4EC87E", light: "#0E7A38", desc: "Diff 新增行" },
+  { key: "diffRemoved",       dark: "#E85454", light: "#B91C1C", desc: "Diff 删除行" },
+  { key: "diffAddedStrong",   dark: "#7AD99B", light: "#0E7A38", desc: "Diff 新增行内变更词（加粗）" },
+  { key: "diffRemovedStrong", dark: "#F08585", light: "#B91C1C", desc: "Diff 删除行内变更词（加粗）" },
+  { key: "diffGutter",        dark: "#6B6B6B", light: "#737373", desc: "Diff 行号栏" },
+  { key: "diffMeta",          dark: "#888888", light: "#5F5F5F", desc: "Diff 元信息 / hunk 头" },
+  { group: "角色" },
+  { key: "roleUser",  dark: "#FFCB6B", light: "#9A4A00", desc: "用户消息的项目符号与文本" },
+  { key: "shellMode", dark: "#BD93F9", light: "#7C3AED", desc: "Shell 模式 (!) 提示符与 $ 命令行" }
+];
+
+var overrides = {};  // key -> "#RRGGBB"，只存被修改过的 token
+
+function baseName() { return document.getElementById("base").value; }
+function baseColor(key) {
+  for (var i = 0; i < TOKENS.length; i++) {
+    if (TOKENS[i].key === key) return TOKENS[i][baseName()];
+  }
+  return "#FF00FF";
+}
+function color(key) { return overrides[key] || baseColor(key); }
+
+function normalizeHex(v) {
+  v = v.trim();
+  if (v[0] !== "#") v = "#" + v;
+  if (/^#[0-9a-fA-F]{3}$/.test(v)) {
+    v = "#" + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+  }
+  if (!/^#[0-9a-fA-F]{6}$/.test(v)) return null;
+  return v.toUpperCase();
+}
+
+/* ---------- HSV <-> HEX ---------- */
+function hexToHsv(hex) {
+  var r = parseInt(hex.substr(1, 2), 16) / 255;
+  var g = parseInt(hex.substr(3, 2), 16) / 255;
+  var b = parseInt(hex.substr(5, 2), 16) / 255;
+  var max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  var h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return { h: h, s: max === 0 ? 0 : d / max, v: max };
+}
+function hsvToHex(h, s, v) {
+  var c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+  var r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  function to2(n) {
+    var s2 = Math.round((n + m) * 255).toString(16).toUpperCase();
+    return s2.length < 2 ? "0" + s2 : s2;
+  }
+  return "#" + to2(r) + to2(g) + to2(b);
+}
+
+/* ---------- 取色面板 ---------- */
+var pickerEl = null, pickerKey = null, pickerAnchor = null;
+var pkH = 0, pkS = 0, pkV = 0;
+
+function buildPicker() {
+  var el = document.createElement("div");
+  el.className = "picker-pop";
+  el.hidden = true;
+  el.innerHTML =
+    '<div class="picker-title"></div>' +
+    '<div class="sv-area"><div class="sv-dot"></div></div>' +
+    '<div class="hue-bar"><div class="hue-thumb"></div></div>' +
+    '<div class="picker-hex-row"><div class="cur"></div><input type="text" class="pk-hex" spellcheck="false"></div>' +
+    '<div class="picker-swatches-label">当前主题色</div>' +
+    '<div class="picker-swatches"></div>';
+  document.body.appendChild(el);
+
+  var svArea = el.querySelector(".sv-area");
+  var hueBar = el.querySelector(".hue-bar");
+  var hexIn = el.querySelector(".pk-hex");
+
+  function drag(el2, onMove) {
+    el2.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      el2.setPointerCapture(e.pointerId);
+      onMove(e);
+      function move(ev) { onMove(ev); }
+      function up() {
+        el2.removeEventListener("pointermove", move);
+        el2.removeEventListener("pointerup", up);
+      }
+      el2.addEventListener("pointermove", move);
+      el2.addEventListener("pointerup", up);
+    });
+  }
+
+  drag(svArea, function (e) {
+    var r = svArea.getBoundingClientRect();
+    pkS = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    pkV = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    applyPickerColor();
+  });
+  drag(hueBar, function (e) {
+    var r = hueBar.getBoundingClientRect();
+    pkH = Math.min(359.99, Math.max(0, (e.clientX - r.left) / r.width * 360));
+    applyPickerColor();
+  });
+  hexIn.addEventListener("change", function () {
+    var v = normalizeHex(hexIn.value);
+    if (v) {
+      var hsv = hexToHsv(v);
+      pkH = hsv.h; pkS = hsv.s; pkV = hsv.v;
+      applyPickerColor();
+    } else {
+      syncPickerUI();
+    }
+  });
+  return el;
+}
+
+function applyPickerColor() {
+  if (!pickerKey) return;
+  overrides[pickerKey] = hsvToHex(pkH, pkS, pkV);
+  syncPickerUI();
+  refresh();
+}
+
+function syncPickerUI() {
+  if (!pickerEl) return;
+  var hex = hsvToHex(pkH, pkS, pkV);
+  var svArea = pickerEl.querySelector(".sv-area");
+  var hueColor = hsvToHex(pkH, 1, 1);
+  svArea.style.background =
+    "linear-gradient(to top, #000, rgba(0,0,0,0))," +
+    "linear-gradient(to right, #fff, " + hueColor + ")";
+  var dot = pickerEl.querySelector(".sv-dot");
+  dot.style.left = (pkS * 100) + "%";
+  dot.style.top = ((1 - pkV) * 100) + "%";
+  dot.style.background = hex;
+  var thumb = pickerEl.querySelector(".hue-thumb");
+  thumb.style.left = (pkH / 360 * 100) + "%";
+  thumb.style.background = hueColor;
+  pickerEl.querySelector(".cur").style.background = hex;
+  var hexIn = pickerEl.querySelector(".pk-hex");
+  if (document.activeElement !== hexIn) hexIn.value = hex;
+}
+
+function fillPickerSwatches() {
+  var host = pickerEl.querySelector(".picker-swatches");
+  host.innerHTML = "";
+  TOKENS.forEach(function (t) {
+    if (!t.key) return;
+    var b = document.createElement("button");
+    var c2 = color(t.key);
+    b.style.background = c2;
+    b.title = t.key + " " + c2;
+    b.addEventListener("click", function () {
+      var hsv = hexToHsv(c2);
+      pkH = hsv.h; pkS = hsv.s; pkV = hsv.v;
+      applyPickerColor();
+    });
+    host.appendChild(b);
+  });
+}
+
+function openPicker(key, anchor) {
+  if (!pickerEl) pickerEl = buildPicker();
+  if (pickerKey === key && !pickerEl.hidden) { closePicker(); return; }
+  pickerKey = key;
+  pickerAnchor = anchor;
+  var hsv = hexToHsv(color(key));
+  pkH = hsv.h; pkS = hsv.s; pkV = hsv.v;
+  pickerEl.querySelector(".picker-title").textContent = key;
+  fillPickerSwatches();
+  syncPickerUI();
+  pickerEl.hidden = false;
+
+  // 定位：优先放在色块右侧，空间不够则放左侧；纵向防止超出窗口
+  var r = anchor.getBoundingClientRect();
+  var pw = 250, ph = pickerEl.offsetHeight;
+  var left = r.right + 10;
+  if (left + pw > window.innerWidth - 8) left = r.left - pw - 10;
+  if (left < 8) left = Math.min(r.right + 10, window.innerWidth - pw - 8);
+  var top = Math.min(r.top, window.innerHeight - ph - 8);
+  if (top < 8) top = 8;
+  pickerEl.style.left = left + "px";
+  pickerEl.style.top = top + "px";
+}
+
+function closePicker() {
+  if (pickerEl) pickerEl.hidden = true;
+  pickerKey = null;
+  pickerAnchor = null;
+}
+
+document.addEventListener("pointerdown", function (e) {
+  if (!pickerEl || pickerEl.hidden) return;
+  if (pickerEl.contains(e.target)) return;
+  if (pickerAnchor && pickerAnchor.contains(e.target)) return;
+  closePicker();
+});
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") closePicker();
+});
+
+/* ---------- 左侧 token 列表 ---------- */
+function buildTokenList() {
+  var host = document.getElementById("tokens");
+  host.innerHTML = "";
+  TOKENS.forEach(function (t) {
+    if (t.group) {
+      var g = document.createElement("div");
+      g.className = "group-title";
+      g.textContent = t.group;
+      host.appendChild(g);
+      return;
+    }
+    var row = document.createElement("div");
+    row.className = "token-row";
+    row.dataset.key = t.key;
+
+    var sw = document.createElement("button");
+    sw.className = "sw";
+    sw.title = "点击打开取色器";
+
+    var mid = document.createElement("div");
+    var name = document.createElement("div");
+    name.className = "tname";
+    name.textContent = t.key;
+    var desc = document.createElement("div");
+    desc.className = "tdesc";
+    desc.textContent = t.desc;
+    mid.appendChild(name); mid.appendChild(desc);
+
+    var hex = document.createElement("input");
+    hex.type = "text";
+    hex.className = "hex";
+    hex.spellcheck = false;
+
+    var reset = document.createElement("button");
+    reset.className = "reset";
+    reset.textContent = "↺";
+    reset.title = "恢复为继承基础色板";
+
+    sw.addEventListener("click", function () { openPicker(t.key, sw); });
+    hex.addEventListener("change", function () {
+      var v = normalizeHex(hex.value);
+      if (v) { overrides[t.key] = v; }
+      refresh();
+    });
+    reset.addEventListener("click", function () {
+      delete overrides[t.key];
+      if (pickerKey === t.key) closePicker();
+      refresh();
+    });
+
+    row.appendChild(sw); row.appendChild(mid);
+    row.appendChild(hex); row.appendChild(reset);
+    host.appendChild(row);
+  });
+}
+
+function refreshTokenList() {
+  document.querySelectorAll(".token-row").forEach(function (row) {
+    var key = row.dataset.key;
+    var overridden = Object.prototype.hasOwnProperty.call(overrides, key);
+    row.classList.toggle("overridden", overridden);
+    row.classList.toggle("inherited", !overridden);
+    row.querySelector(".sw").style.background = color(key);
+    row.querySelector(".hex").value = color(key);
+  });
+}
+
+/* ---------- 预览 ---------- */
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function c(key, extra) { return ' style="color:' + color(key) + (extra || "") + '"'; }
+function span(key, text, extra) { return "<span" + c(key, extra) + ">" + esc(text) + "</span>"; }
+
+function renderPreview() {
+  var bg = document.getElementById("term-bg").value;
+  var h = "";
+  h += '<div class="term pv" style="background:' + bg + '">';
+
+  // 用户消息 + 助手回复（Markdown）
+  h += "<div>" + span("roleUser", "● 帮我给按钮组件加一个 loading 状态") + "</div>";
+  h += '<div style="margin-top:6px">' + span("text", "● 我先看一下现有实现。Button 组件在 ");
+  h += span("primary", "src/ui/Button.tsx");
+  h += span("text", "，改动很小：") + "</div>";
+  h += '<div style="margin-top:6px">' + span("text", "## 修改方案", ";font-weight:bold") + "</div>";
+  h += "<div>" + span("text", "- 新增 ");
+  h += span("primary", "loading");
+  h += span("text", " 属性，为真时禁用点击并显示加载动画") + "</div>";
+  h += "<div>" + span("text", "- 详见 ") + span("primary", "https://example.com/spec");
+  h += " " + span("textMuted", "(example.com)") + "</div>";
+  h += "<div>" + span("textDim", "> 注意：不要破坏现有的 disabled 样式。") + "</div>";
+  h += '<div style="margin-top:6px">' + span("textDim", "✎ thinking: 先改类型定义，再改渲染…") + "</div>";
+
+  // 工具调用
+  h += '<div style="margin-top:6px">' + span("success", "✓") + " " + span("text", "Read") + " " + span("textDim", "src/ui/Button.tsx (42 lines)") + "</div>";
+  h += "<div>" + span("primary", "⠋") + " " + span("text", "Edit") + " " + span("textDim", " applying changes…") + "</div>";
+
+  // Diff
+  h += '<div class="pv-diff" style="border-color:' + color("textMuted") + '">';
+  h += '<div class="line" style="background:rgba(0,0,0,.18)"><div class="gutter"' + c("diffMeta") + '>…</div><div class="code"' + c("diffMeta") + ">@@ -10,7 +10,8 @@</div></div>";
+  h += diffLine("12", "12", " ", "text", "export function Button(props) {");
+  h += diffLine("13", "-", "-", "diffRemoved", '  const { label, onClick } = props;', null);
+  h += diffLine("-", "13", "+", "diffAdded", '  const { label, onClick, ', "loading", ' } = props;', "diffAddedStrong");
+  h += diffLine("14", "14", " ", "text", "}");
+  h += "</div>";
+
+  // Shell 模式 + 错误
+  h += '<div style="margin-top:6px">' + span("shellMode", "! $ npm test") + "</div>";
+  h += "<div>" + span("error", "✗ 2 tests failed: Button › renders label") + "</div>";
+  h += "<div>" + span("warning", "⚠ snapshot obsolete: Button-loading.snap") + "</div>";
+
+  // 审批面板（borderFocus + accent + 选中项 primary）
+  h += '<div class="pv-box" style="border-color:' + color("borderFocus") + '">';
+  h += "<div>" + span("borderFocus", "Approval required", ";font-weight:bold") + "</div>";
+  h += "<div>" + span("text", "Allow Bash: ") + span("primary", "npm test") + "<span" + c("textMuted") + ">?</span></div>";
+  h += '<div class="pv-row" style="margin-top:4px">';
+  h += '<div class="pv-sel" style="background:' + color("primary") + ';color:' + bg + '">' + span("accent", "▶") + " Yes, allow once</div>";
+  h += '<div' + c("textDim") + ">  Always allow</div>";
+  h += '<div' + c("textDim") + ">  No</div>";
+  h += "</div>";
+  h += '<div style="margin-top:4px">' + span("warning", "auto mode") + " " + span("textMuted", "(esc to cancel)") + "</div>";
+  h += "</div>";
+
+  // 输入框（primary 聚焦边框）
+  h += '<div class="pv-box" style="border-color:' + color("primary") + '">';
+  h += span("textStrong", "> 把测试也一并修好") + '<span' + c("primary") + ">▌</span>";
+  h += "</div>";
+
+  // 状态栏
+  h += '<div class="pv-footer" style="border-color:' + color("border") + '">';
+  h += span("textDim", "~/project (main*)") + "  " + span("text", "kimi-k2") + "  " + span("textMuted", "ctx 48%") + "  " + span("success", "✓ saved");
+  h += "</div>";
+
+  h += "</div>";
+  document.getElementById("preview").innerHTML = h;
+
+  function diffLine(g1, g2, sign, textKey, code, strongWord, tail, strongKey) {
+    var gutter = '<div class="gutter"' + c("diffGutter") + ">" + esc(g1 + " " + g2) + "</div>";
+    var body = esc(sign + " " + code);
+    if (strongWord) body += "<b" + c(strongKey || textKey) + ">" + esc(strongWord) + "</b>" + esc(tail || "");
+    return '<div class="line">' + gutter + '<div class="code"' + c(textKey) + ">" + body + "</div></div>";
+  }
+}
+
+/* ---------- 导出 ---------- */
+function buildTheme() {
+  var name = document.getElementById("theme-name").value.trim() || "my-theme";
+  var display = document.getElementById("theme-display").value.trim();
+  var theme = { name: name };
+  if (display) theme.displayName = display;
+  theme.base = baseName();
+  if (Object.keys(overrides).length) {
+    theme.colors = {};
+    TOKENS.forEach(function (t) {
+      if (t.key && overrides[t.key]) theme.colors[t.key] = overrides[t.key];
+    });
+  }
+  return theme;
+}
+
+function refreshOutput() {
+  document.getElementById("json-out").value = JSON.stringify(buildTheme(), null, 2);
+}
+
+function refresh() {
+  refreshTokenList();
+  renderPreview();
+  refreshOutput();
+}
+
+function toast(msg) {
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.style.opacity = "1";
+  setTimeout(function () { el.style.opacity = "0"; }, 1500);
+}
+
+/* ---------- 事件 ---------- */
+document.getElementById("base").addEventListener("change", function () {
+  closePicker();
+  refresh();
+});
+document.getElementById("term-bg").addEventListener("input", renderPreview);
+document.getElementById("theme-name").addEventListener("input", refreshOutput);
+document.getElementById("theme-display").addEventListener("input", refreshOutput);
+
+document.getElementById("btn-copy").addEventListener("click", function () {
+  var out = document.getElementById("json-out");
+  out.select();
+  navigator.clipboard.writeText(out.value).then(
+    function () { toast("已复制到剪贴板"); },
+    function () { document.execCommand("copy"); toast("已复制到剪贴板"); }
+  );
+});
+
+document.getElementById("btn-download").addEventListener("click", function () {
+  var theme = buildTheme();
+  var blob = new Blob([JSON.stringify(theme, null, 2)], { type: "application/json" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = theme.name + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById("btn-reset-all").addEventListener("click", function () {
+  if (!Object.keys(overrides).length || confirm("清除所有自定义颜色，恢复为完全继承基础色板？")) {
+    overrides = {};
+    closePicker();
+    refresh();
+  }
+});
+
+document.getElementById("btn-import").addEventListener("click", function () {
+  document.getElementById("import-file").click();
+});
+document.getElementById("import-file").addEventListener("change", function (e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    try {
+      var data = JSON.parse(reader.result);
+      if (data.base === "light" || data.base === "dark") {
+        document.getElementById("base").value = data.base;
+      }
+      if (data.name) document.getElementById("theme-name").value = data.name;
+      if (data.displayName) document.getElementById("theme-display").value = data.displayName;
+      overrides = {};
+      var validKeys = {};
+      TOKENS.forEach(function (t) { if (t.key) validKeys[t.key] = true; });
+      if (data.colors) {
+        Object.keys(data.colors).forEach(function (k) {
+          var v = normalizeHex(String(data.colors[k]));
+          if (validKeys[k] && v) overrides[k] = v;
+        });
+      }
+      closePicker();
+      refresh();
+      toast("导入成功");
+    } catch (err) {
+      toast("导入失败：JSON 解析错误");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+/* ---------- 预设主题 ----------
+ * 色值来源（均为官方色板，个别派生色在原色基础上向黑/白混合得到）：
+ * Catppuccin: github.com/catppuccin/palette  Gruvbox: github.com/morhetz/gruvbox
+ * Nord: nordtheme.com/docs/colors-and-palettes  Tokyo Night: github.com/folke/tokyonight.nvim
+ * Dracula: draculatheme.com/contribute
+ */
+var PRESETS = [
+  {
+    id: "catppuccin-mocha", label: "Catppuccin Mocha（深）", base: "dark", bg: "#1E1E2E",
+    colors: {
+      primary: "#89B4FA", accent: "#94E2D5",
+      text: "#CDD6F4", textStrong: "#B4BEFE", textDim: "#A6ADC8", textMuted: "#7F849C",
+      border: "#585B70", borderFocus: "#FAB387",
+      success: "#A6E3A1", warning: "#F9E2AF", error: "#F38BA8",
+      diffAdded: "#A6E3A1", diffRemoved: "#F38BA8",
+      diffAddedStrong: "#C1EBBD", diffRemovedStrong: "#EBA0AC",
+      diffGutter: "#6C7086", diffMeta: "#A6ADC8",
+      roleUser: "#FAB387", shellMode: "#CBA6F7"
+    }
+  },
+  {
+    id: "catppuccin-latte", label: "Catppuccin Latte（浅）", base: "light", bg: "#EFF1F5",
+    colors: {
+      primary: "#1E66F5", accent: "#179299",
+      text: "#4C4F69", textStrong: "#393B4F", textDim: "#6C6F85", textMuted: "#8C8FA1",
+      border: "#ACB0BE", borderFocus: "#FE640B",
+      success: "#40A02B", warning: "#DF8E1D", error: "#D20F39",
+      diffAdded: "#40A02B", diffRemoved: "#D20F39",
+      diffAddedStrong: "#79BC6B", diffRemovedStrong: "#E64553",
+      diffGutter: "#9CA0B0", diffMeta: "#6C6F85",
+      roleUser: "#FE640B", shellMode: "#8839EF"
+    }
+  },
+  {
+    id: "gruvbox-dark", label: "Gruvbox Dark（深）", base: "dark", bg: "#282828",
+    colors: {
+      primary: "#83A598", accent: "#8EC07C",
+      text: "#EBDBB2", textStrong: "#FBF1C7", textDim: "#928374", textMuted: "#7C6F64",
+      border: "#665C54", borderFocus: "#FE8019",
+      success: "#B8BB26", warning: "#FABD2F", error: "#FB4934",
+      diffAdded: "#B8BB26", diffRemoved: "#FB4934",
+      diffAddedStrong: "#CDCF67", diffRemovedStrong: "#FC8071",
+      diffGutter: "#7C6F64", diffMeta: "#928374",
+      roleUser: "#FE8019", shellMode: "#D3869B"
+    }
+  },
+  {
+    id: "gruvbox-light", label: "Gruvbox Light（浅）", base: "light", bg: "#FBF1C7",
+    colors: {
+      primary: "#076678", accent: "#427B58",
+      text: "#3C3836", textStrong: "#282828", textDim: "#928374", textMuted: "#A89984",
+      border: "#BDAE93", borderFocus: "#AF3A03",
+      success: "#79740E", warning: "#B57614", error: "#9D0006",
+      diffAdded: "#79740E", diffRemoved: "#9D0006",
+      diffAddedStrong: "#98971A", diffRemovedStrong: "#CC241D",
+      diffGutter: "#A89984", diffMeta: "#928374",
+      roleUser: "#AF3A03", shellMode: "#8F3F71"
+    }
+  },
+  {
+    id: "nord", label: "Nord（深）", base: "dark", bg: "#2E3440",
+    colors: {
+      primary: "#88C0D0", accent: "#8FBCBB",
+      text: "#D8DEE9", textStrong: "#ECEFF4", textDim: "#838994", textMuted: "#696F7B",
+      border: "#434C5E", borderFocus: "#EBCB8B",
+      success: "#A3BE8C", warning: "#EBCB8B", error: "#BF616A",
+      diffAdded: "#A3BE8C", diffRemoved: "#BF616A",
+      diffAddedStrong: "#BFD2AF", diffRemovedStrong: "#D29097",
+      diffGutter: "#434C5E", diffMeta: "#838994",
+      roleUser: "#D08770", shellMode: "#B48EAD"
+    }
+  },
+  {
+    id: "tokyo-night", label: "Tokyo Night（深）", base: "dark", bg: "#1A1B26",
+    colors: {
+      primary: "#7AA2F7", accent: "#7DCFFF",
+      text: "#C0CAF5", textStrong: "#E0E5FA", textDim: "#A9B1D6", textMuted: "#737AA2",
+      border: "#414868", borderFocus: "#FF9E64",
+      success: "#9ECE6A", warning: "#E0AF68", error: "#F7768E",
+      diffAdded: "#9ECE6A", diffRemoved: "#F7768E",
+      diffAddedStrong: "#BBDD97", diffRemovedStrong: "#F99FB0",
+      diffGutter: "#3B4261", diffMeta: "#565F89",
+      roleUser: "#FF9E64", shellMode: "#BB9AF7"
+    }
+  },
+  {
+    id: "dracula", label: "Dracula（深）", base: "dark", bg: "#282A36",
+    colors: {
+      primary: "#BD93F9", accent: "#8BE9FD",
+      text: "#F8F8F2", textStrong: "#FFFFFF", textDim: "#8F9ABF", textMuted: "#6272A4",
+      border: "#44475A", borderFocus: "#FFB86C",
+      success: "#50FA7B", warning: "#F1FA8C", error: "#FF5555",
+      diffAdded: "#50FA7B", diffRemoved: "#FF5555",
+      diffAddedStrong: "#85FCA3", diffRemovedStrong: "#FF8888",
+      diffGutter: "#44475A", diffMeta: "#6272A4",
+      roleUser: "#FFB86C", shellMode: "#FF79C6"
+    }
+  }
+];
+
+(function initPresets() {
+  var sel = document.getElementById("preset");
+  PRESETS.forEach(function (p) {
+    var o = document.createElement("option");
+    o.value = p.id;
+    o.textContent = p.label;
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change", function () {
+    var id = sel.value;
+    sel.value = "";
+    if (!id) return;
+    var p = null;
+    PRESETS.forEach(function (x) { if (x.id === id) p = x; });
+    if (!p) return;
+    if (Object.keys(overrides).length &&
+        !confirm("套用预设会覆盖当前所有自定义颜色，继续？")) return;
+    document.getElementById("base").value = p.base;
+    document.getElementById("term-bg").value = p.bg;
+    document.getElementById("theme-name").value = p.id;
+    overrides = {};
+    Object.keys(p.colors).forEach(function (k) { overrides[k] = p.colors[k]; });
+    closePicker();
+    refresh();
+    toast("已套用预设：" + p.label);
+  });
+})();
+
+/* ---------- 启动 ---------- */
+buildTokenList();
+refresh();
+</script>
+</body>
+</html>
