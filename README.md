@@ -6,7 +6,7 @@ Kimi Code CLI TUI 的可视化配色工具——单文件网页，零依赖，�
 
 ## 使用
 
-1. 用浏览器打开 `index.html`（无需安装任何东西，也无需联网） 或 访问[在线页面](https://traveritas.github.io/vis-colpal-editor/)
+1. 用浏览器打开 `index.html`（无需安装任何东西，也无需联网） 或 访问[在线页面](https://traveritas.github.io/kimi-code-theme-editor/)
 2. 点击左侧色块打开取色器调整颜色，或直接从「预设」下拉框套用经典配色
 3. 右侧实时预览 Kimi TUI 的模拟界面（消息、Markdown、diff、审批面板、状态栏等）
 4. 点「下载 .json」，保存为 `~/.kimi-code/themes/<主题名>.json`
