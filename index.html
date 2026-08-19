@@ -55,8 +55,13 @@
   .token-row .sw {
     width: 26px; height: 26px; border: 1px solid var(--panel-border);
     border-radius: 5px; cursor: pointer; padding: 0;
+    transition: transform .12s;
   }
-  .token-row .sw:hover { outline: 2px solid var(--hl); }
+  .token-row .sw:hover { outline: 2px solid var(--hl); transform: scale(1.18); }
+  .panel-hint {
+    color: var(--fg-dim); font-size: 12px; padding: 0 6px 8px;
+    border-bottom: 1px solid var(--panel-border); margin-bottom: 8px;
+  }
   .token-row .tname { font-family: Consolas, monospace; font-size: 13px; }
   .token-row .tdesc { color: var(--fg-dim); font-size: 11px; }
   .token-row .hex {
@@ -427,6 +432,10 @@ document.addEventListener("keydown", function (e) {
 function buildTokenList() {
   var host = document.getElementById("tokens");
   host.innerHTML = "";
+  var hint = document.createElement("div");
+  hint.className = "panel-hint";
+  hint.textContent = "点击色块打开取色器，也可以直接在输入框填 hex 值";
+  host.appendChild(hint);
   TOKENS.forEach(function (t) {
     if (t.group) {
       var g = document.createElement("div");
