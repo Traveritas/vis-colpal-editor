@@ -1,4 +1,4 @@
-# vis-colpal-editor
+# kimi-code-theme-editor
 
 Kimi Code CLI TUI 的可视化配色工具——单文件网页，零依赖，双击即用。
 
